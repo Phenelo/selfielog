@@ -24,7 +24,7 @@ var previousDate,
 
   // Audio variables
   audioContext = window.AudioContext || window.webkitAudioContext, webcam = {},
-  context = new audioContext(), sampleRate, volume, audioInput, recorder, recordingLength = 0,
+  context = new audioContext(), sampleRate, volume, audioInput, recorder, recordingLength = 0, recording,
   audioStack = [], nextTime = 0, recorded = false, leftchannel = [], rightchannel = [], init = 0;
 
 navigator.getUserMedia =
@@ -137,6 +137,7 @@ function cancelIt() {
           webcam.video.remove();
         }
       }
+      recording = false;
     }
   } else {
     preview.style.visibility = 'hidden';
@@ -180,10 +181,10 @@ function scheduleBuffers() {
     var source = context.createBufferSource();
     source.buffer = buffer;
     source.connect(context.destination);
-    if (nextTime == 0 || (nextTime + source.buffer.duration) < context.currentTime)
+    if (nextTime == 0)
       nextTime = context.currentTime + 0.05;  /// add 50ms latency to work well across systems - tune this if you like
     source.start(nextTime);
-    nextTime += source.buffer.duration; // Make the next buffer wait the length of the last buffer before being played
+    nextTime += (context.currentTime - nextTime) + source.buffer.duration; // Make the next buffer wait the length of the last buffer before being played
   };
 }
 
@@ -200,8 +201,9 @@ function success(e) {
   audioInput.connect(volume);
   var bufferSize = 2048;
   recorder = context.createScriptProcessor(bufferSize, 2, 2);
+  recording = true;
   recorder.onaudioprocess = function(e){
-    //if (recording) {
+    if (recording) {
       var left = e.inputBuffer.getChannelData(0);
       var right = e.inputBuffer.getChannelData(1);
       leftchannel.push(new Float32Array(left));
@@ -210,7 +212,7 @@ function success(e) {
       decodeToPlay();
       leftchannel.length = rightchannel.length = 0;
       recordingLength = 0;
-    //}
+    }
   }
   volume.connect (recorder);
   recorder.connect (context.destination);
